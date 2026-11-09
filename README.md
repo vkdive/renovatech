@@ -1,3 +1,4 @@
+
 # Renovatech
 
 Renovatech is a refurbished laptop seller and IT solutions provider. We help individuals and businesses find practical technology options and support for their computing needs.
