@@ -1,0 +1,9 @@
+{
+  "name": "renovatech-landing",
+  "version": "1.0.0",
+  "description": "Landing page for renovatechsolutions.com",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" },
+  "license": "UNLICENSED"
+}
