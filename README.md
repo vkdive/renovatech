@@ -1,18 +1,18 @@
+# Renovatech Solutions
 
-# Renovatech
+**Refurbished laptops & IT solutions**
 
-Renovatech is a refurbished laptop seller and IT solutions provider. We help individuals and businesses find practical technology options and support for their computing needs.
+Renovatech Solutions sells refurbished laptops and provides one-to-one IT solutions tailored to each customer's needs.
 
-## What We Do
+## What We Offer
 
-- **Refurbished laptops:** Offer pre-owned laptops as an alternative to buying new devices.
-- **IT solutions:** Provide technology solutions to support everyday computing needs.
-- **Technology guidance:** Help customers choose suitable devices and solutions for their requirements.
+- **Refurbished laptops:** Pre-owned laptops for work, study, and everyday use. Availability, specifications, and pricing depend on current stock.
+- **One-to-one IT solutions:** Personalized help based on the customer's specific requirements.
 
-## Our Approach
+## Website
 
-Renovatech aims to make useful technology more accessible through refurbished devices and IT services. Whether you are looking for a laptop or need help with an IT requirement, Renovatech can help you explore an option that fits your needs.
+The landing page is available in `index.html` and `public/index.html`. The site logo is stored in the repository root and in `public/` for the two page locations.
 
 ## Contact
 
-For product availability, pricing, or IT solution enquiries, contact Renovatech through your preferred channel.
+Contact details can be added here when available.
