@@ -9,7 +9,7 @@
     "ramGb": 8,
     "storageGb": 256,
     "graphicsGb": null,
-    "price": 24000,
+    "price": 28000,
     "quantity": 2
   },
   {
@@ -22,7 +22,7 @@
     "ramGb": 8,
     "storageGb": 256,
     "graphicsGb": null,
-    "price": 19500,
+    "price": 23500,
     "quantity": 15
   },
   {
@@ -35,7 +35,7 @@
     "ramGb": 8,
     "storageGb": 256,
     "graphicsGb": 2,
-    "price": 22500,
+    "price": 26500,
     "quantity": 3
   },
   {
@@ -48,7 +48,7 @@
     "ramGb": 8,
     "storageGb": 256,
     "graphicsGb": null,
-    "price": 22000,
+    "price": 26000,
     "quantity": 20
   },
   {
@@ -61,7 +61,7 @@
     "ramGb": 8,
     "storageGb": 256,
     "graphicsGb": null,
-    "price": 25000,
+    "price": 29000,
     "quantity": 5
   },
   {
@@ -74,7 +74,7 @@
     "ramGb": 8,
     "storageGb": 256,
     "graphicsGb": null,
-    "price": 32000,
+    "price": 36000,
     "quantity": 5
   }
 ]
