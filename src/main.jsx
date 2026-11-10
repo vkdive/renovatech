@@ -27,6 +27,11 @@ function readCart() {
   }
 }
 
+function createOrderId() {
+  const uniquePart = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `RT-${uniquePart.replace(/[^a-z0-9]/gi, '').toUpperCase()}`;
+}
+
 function Icon({ name, className = '' }) {
   const paths = {
     search: <><circle cx="11" cy="11" r="6.5" /><path d="m16 16 4.5 4.5" /></>,
@@ -129,6 +134,8 @@ function Hero({ totalUnits, modelCount, startingPrice }) {
 function ProductCard({ product, index, cartQuantity, onAddToCart }) {
   const available = product.quantity > 0;
   const atStockLimit = cartQuantity >= product.quantity;
+  const enquiryMessage = `Hi Renovatech, I’d like to enquire about the ${product.model} (${product.configuration}) listed at ${formatPrice.format(product.price)}. Could you confirm availability and details?`;
+  const enquiryLink = `https://wa.me/${phone}?text=${encodeURIComponent(enquiryMessage)}`;
 
   return (
     <article className="product-card">
@@ -152,9 +159,12 @@ function ProductCard({ product, index, cartQuantity, onAddToCart }) {
           <div><span className="price-label">Price</span><strong className="price">{formatPrice.format(product.price)}</strong></div>
           <span className="quantity-label">{product.quantity} {product.quantity === 1 ? 'unit' : 'units'} available</span>
         </div>
-        <button className="product-cta" type="button" onClick={() => onAddToCart(product)} disabled={!available || atStockLimit}>
-          {!available ? 'Out of stock' : atStockLimit ? 'Stock limit reached' : 'Add to cart'} <Icon name={available ? 'plus' : 'close'} />
-        </button>
+        <div className="product-actions">
+          <a className="product-enquire" href={enquiryLink} target="_blank" rel="noreferrer"><Icon name="whatsapp" /> <span>Enquire on WhatsApp</span></a>
+          <button className="product-cta" type="button" onClick={() => onAddToCart(product)} disabled={!available || atStockLimit}>
+            <span>{!available ? 'Out of stock' : atStockLimit ? 'Stock limit reached' : 'Add to cart'}</span> <Icon name={available ? 'plus' : 'close'} />
+          </button>
+        </div>
       </div>
     </article>
   );
@@ -246,15 +256,36 @@ function Catalogue({ cartQuantities, onAddToCart }) {
 }
 
 function CartDrawer({ cartItems, cartCount, onClose, onIncrease, onDecrease, onRemove }) {
+  const [showCustomerForm, setShowCustomerForm] = useState(false);
   const total = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-  const orderMessage = [
-    'Hello Renovatech, I would like to place an order:',
-    ...cartItems.map(({ product, quantity }) => `• ${product.model} (${product.configuration}), ${quantity} × ${formatPrice.format(product.price)} = ${formatPrice.format(product.price * quantity)}`),
-    `Order total: ${formatPrice.format(total)}`,
-    '',
-    'Please confirm availability and share the payment link and delivery next steps.'
-  ].join('\n');
-  const whatsappOrderLink = `https://wa.me/${phone}?text=${encodeURIComponent(orderMessage)}`;
+
+  function handleSubmitOrder(event) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const customer = {
+      name: String(formData.get('name') || '').trim(),
+      email: String(formData.get('email') || '').trim(),
+      phone: String(formData.get('phone') || '').trim()
+    };
+    const orderId = createOrderId();
+    const orderMessage = [
+      'Hello Renovatech, I would like to place an order:',
+      `Order reference: ${orderId}`,
+      '',
+      'Customer details:',
+      `Name: ${customer.name}`,
+      `Email: ${customer.email}`,
+      `Phone: ${customer.phone}`,
+      '',
+      'Items:',
+      ...cartItems.map(({ product, quantity }) => `• ${product.model} (${product.configuration}), ${quantity} × ${formatPrice.format(product.price)} = ${formatPrice.format(product.price * quantity)}`),
+      `Order total: ${formatPrice.format(total)}`,
+      '',
+      'Please confirm this order. Payment and delivery will be arranged separately with your team.'
+    ].join('\n');
+    const whatsappOrderLink = `https://wa.me/${phone}?text=${encodeURIComponent(orderMessage)}`;
+    window.open(whatsappOrderLink, '_blank', 'noopener,noreferrer');
+  }
 
   return (
     <div className="cart-backdrop" onClick={onClose}>
@@ -264,7 +295,24 @@ function CartDrawer({ cartItems, cartCount, onClose, onIncrease, onDecrease, onR
           <button className="cart-close" type="button" onClick={onClose} aria-label="Close cart"><Icon name="close" /></button>
         </div>
 
-        {cartItems.length > 0 ? (
+        {cartItems.length > 0 ? showCustomerForm ? (
+          <div className="checkout-flow">
+            <button className="checkout-back" type="button" onClick={() => setShowCustomerForm(false)}>← Back to cart</button>
+            <div className="checkout-flow-heading">
+              <span className="eyebrow">Almost there</span>
+              <h3>Your contact details</h3>
+              <p>We’ll include these details with your order message so our team can confirm it with you.</p>
+            </div>
+            <div className="checkout-flow-total"><span>Order total</span><strong>{formatPrice.format(total)}</strong></div>
+            <form className="checkout-form" onSubmit={handleSubmitOrder}>
+              <label className="checkout-field"><span>Full name</span><input name="name" type="text" autoComplete="name" maxLength="100" required /></label>
+              <label className="checkout-field"><span>Email address</span><input name="email" type="email" autoComplete="email" maxLength="254" required /></label>
+              <label className="checkout-field"><span>Phone number</span><input name="phone" type="tel" autoComplete="tel" inputMode="tel" maxLength="30" required /></label>
+              <p className="checkout-data-note">Your name, email, phone, and order details will be placed in a WhatsApp message to Renovatech. Review and send it in WhatsApp to place your order.</p>
+              <button className="button button--dark" type="submit">Place order</button>
+            </form>
+          </div>
+        ) : (
           <>
             <div className="cart-items">
               {cartItems.map(({ product, quantity }) => (
@@ -287,8 +335,8 @@ function CartDrawer({ cartItems, cartCount, onClose, onIncrease, onDecrease, onR
             </div>
             <div className="cart-summary">
               <div className="cart-total-row"><span>Grand total</span><strong>{formatPrice.format(total)}</strong></div>
-              <p>No payment or delivery details are collected here. Our team will confirm availability, send a payment link, and arrange delivery over WhatsApp.</p>
-              <a className="button button--dark cart-order-button" href={whatsappOrderLink} target="_blank" rel="noreferrer"><Icon name="whatsapp" /> Place order on WhatsApp</a>
+              <div className="checkout-reassurance"><p>No payment or delivery details are collected here. Our team will confirm availability over WhatsApp and arrange the delivery and payment process.</p></div>
+              <button className="button button--dark cart-order-button" type="button" onClick={() => setShowCustomerForm(true)}>Place order</button>
             </div>
           </>
         ) : (
