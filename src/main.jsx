@@ -308,7 +308,19 @@ function CartDrawer({ cartItems, cartCount, onClose, onIncrease, onDecrease, onR
               <label className="checkout-field"><span>Full name</span><input name="name" type="text" autoComplete="name" maxLength="100" required /></label>
               <label className="checkout-field"><span>Email address</span><input name="email" type="email" autoComplete="email" maxLength="254" required /></label>
               <label className="checkout-field"><span>Phone number</span><input name="phone" type="tel" autoComplete="tel" inputMode="tel" maxLength="30" required /></label>
-              <p className="checkout-data-note">Your name, email, phone, and order details will be placed in a WhatsApp message to Renovatech. Review and send it in WhatsApp to place your order.</p>
+              <div className="checkout-data-note">
+                <p>Your name, email address, phone number, order details, and transaction ID will be shared with Renovatech via WhatsApp.</p>
+                <p>A unique transaction ID will be generated and available in your WhatsApp conversation with our business account, allowing you to track and reference your order.</p>
+                <p>After you send your order, our team will contact you to confirm it and provide:</p>
+                <ul>
+                  <li>Order confirmation</li>
+                  <li>Available delivery options and timelines</li>
+                  <li>Additional information required for delivery</li>
+                  <li>Available payment methods</li>
+                </ul>
+                <p>We appreciate your trust in Renovatech Solution and look forward to serving you!</p>
+                <p className="checkout-data-action">When you select <strong>Place order</strong>, WhatsApp will open with the message ready. Review it and tap Send to submit your order.</p>
+              </div>
               <button className="button button--dark" type="submit">Place order</button>
             </form>
           </div>

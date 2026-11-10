@@ -190,6 +190,11 @@ nav a:hover { color: var(--green); }
 .checkout-field input { width: 100%; min-height: 46px; padding: 0 12px; border: 1px solid #dfe7db; border-radius: 10px; background: #fff; color: #17342b; font-size: .92rem; }
 .checkout-field input::placeholder { color: #9ba79e; }
 .checkout-data-note { margin: 0; padding: 11px 12px; border-left: 3px solid #86b478; border-radius: 0 9px 9px 0; background: #f0f7ec; color: #526b57; font-size: .77rem; line-height: 1.5; }
+.checkout-data-note p { margin: 0; color: inherit; }
+.checkout-data-note p + p { margin-top: 9px; }
+.checkout-data-note ul { display: grid; gap: 3px; margin: 7px 0 9px; padding-left: 19px; }
+.checkout-data-note li { padding-left: 1px; }
+.checkout-data-note .checkout-data-action { margin-top: 11px; padding-top: 9px; border-top: 1px solid #d5e5cd; color: #405d47; font-weight: 600; }
 .checkout-form .button { width: 100%; }
 .cart-empty { display: flex; flex: 1; align-items: center; justify-content: center; flex-direction: column; padding: 30px; text-align: center; }
 .cart-empty > svg { width: 44px; height: 44px; margin-bottom: 14px; fill: none; stroke: #75a36a; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.6; }
