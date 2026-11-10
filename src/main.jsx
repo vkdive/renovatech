@@ -252,7 +252,7 @@ function Contact() {
           </div>
           <a className="button button--light" href={`https://wa.me/${phone}`} target="_blank" rel="noreferrer"><Icon name="whatsapp" /> Message Renovatech</a>
           <div className="contact-details">
-            <a href="mailto:naveensnave@gmail.com"><Icon name="email" /> naveensnave@gmail.com</a>
+            <a href="mailto:Renovatechsolution12@gmail.com"><Icon name="email" /> Renovatechsolution12@gmail.com</a>
             <a href={`tel:+${phone}`}><Icon name="phone" /> 9739224269</a>
             <span>Naveen S · Contact person</span>
           </div>
