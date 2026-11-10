@@ -1,9 +1,21 @@
 {
   "name": "renovatech-landing",
   "version": "1.0.0",
-  "description": "Landing page for renovatechsolutions.com",
-  "main": "server.js",
-  "scripts": { "start": "node server.js" },
-  "engines": { "node": ">=18" },
+  "description": "Renovatech Solutions refurbished laptops and computer hardware website",
+  "scripts": {
+    "dev": "vite --config vite.config.mjs",
+    "build": "node scripts/build.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.3.0",
+    "vite": "^8.3.7"
+  },
   "license": "UNLICENSED"
 }

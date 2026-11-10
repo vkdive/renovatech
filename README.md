@@ -1,18 +1,22 @@
 # Renovatech Solutions
 
-**Refurbished laptops & IT solutions**
+React website for Renovatech Solutions, focused on refurbished laptops and computer hardware.
 
-Renovatech Solutions sells refurbished laptops and provides one-to-one IT solutions tailored to each customer's needs.
+## Development
 
-## What We Offer
+Use Node.js 20.19 or newer to install dependencies and run Vite:
 
-- **Refurbished laptops:** Pre-owned laptops for work, study, and everyday use. Availability, specifications, and pricing depend on current stock.
-- **One-to-one IT solutions:** Personalized help based on the customer's specific requirements.
+```sh
+npm install
+npm run dev
+```
 
-## Website
+## Build and deploy
 
-The landing page is available in `index.html` and `public/index.html`. The site logo is stored in the repository root and in `public/` for the two page locations.
+```sh
+npm run build
+```
 
-## Contact
+The build writes the static site to the repository root for GitHub Pages. Commit the generated root `index.html` and `assets/` files when deploying.
 
-Contact details can be added here when available.
+React components and styles live in `src/`. Node.js is used only for local development and building the static site; GitHub Pages serves the generated files directly.
