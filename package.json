@@ -1,9 +1,10 @@
 {
   "name": "renovatech-landing",
   "version": "1.0.0",
-  "description": "Renovatech Solutions refurbished laptops and computer hardware website",
+  "description": "Renovatech Solutions refurbished laptop catalogue",
   "scripts": {
-    "dev": "vite --config vite.config.mjs",
+    "dev": "node scripts/sync-stock.mjs && vite --config vite.config.mjs",
+    "sync-stock": "node scripts/sync-stock.mjs",
     "build": "node scripts/build.mjs"
   },
   "engines": {
@@ -15,6 +16,7 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^6.3.0",
+    "read-excel-file": "^9.3.14",
     "vite": "^8.3.7"
   },
   "license": "UNLICENSED"
