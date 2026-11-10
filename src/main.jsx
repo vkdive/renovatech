@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import logo from '../renovatech-logo.jpeg';
 import inventory from './products.json';
@@ -10,6 +10,22 @@ const formatPrice = new Intl.NumberFormat('en-IN', {
   currency: 'INR',
   maximumFractionDigits: 0
 });
+const CART_STORAGE_KEY = 'renovatech-cart-v1';
+
+function readCart() {
+  try {
+    const savedCart = JSON.parse(window.localStorage.getItem(CART_STORAGE_KEY) || '[]');
+    if (!Array.isArray(savedCart)) return [];
+
+    return inventory.flatMap((product) => {
+      const savedItem = savedCart.find((item) => item?.id === product.id);
+      const quantity = Math.min(product.quantity, Math.floor(Number(savedItem?.quantity) || 0));
+      return quantity > 0 ? [{ id: product.id, quantity }] : [];
+    });
+  } catch {
+    return [];
+  }
+}
 
 function Icon({ name, className = '' }) {
   const paths = {
@@ -17,7 +33,12 @@ function Icon({ name, className = '' }) {
     arrow: <><path d="M5 12h14" /><path d="m13 6 6 6-6 6" /></>,
     whatsapp: <><path d="M20.5 11.7a8.5 8.5 0 0 1-12.6 7.5L3 20.5l1.3-4.7a8.5 8.5 0 1 1 16.2-4.1Z" /><path d="M8.5 8.3c.2-.5.5-.5.8-.5h.5c.2 0 .4.1.5.4l.7 1.7c.1.2.1.4-.1.6l-.5.6c-.2.2-.2.4 0 .6.5.9 1.3 1.6 2.2 2 .2.1.4.1.6-.1l.7-.8c.2-.2.4-.2.6-.1l1.6.8c.2.1.4.3.4.5 0 .3-.2 1.1-.7 1.5-.5.5-1.1.7-1.8.6-1.1-.2-2.4-.8-3.6-1.9-1.4-1.2-2.3-2.7-2.6-3.7-.3-.9 0-1.7.4-2.2Z" /></>,
     email: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></>,
-    phone: <path d="M5 4h4l2 5-2.5 1.7a15 15 0 0 0 4.8 4.8L15 13l5 2v4a2 2 0 0 1-2.2 2A18 18 0 0 1 3 6.2 2 2 0 0 1 5 4Z" />
+    phone: <path d="M5 4h4l2 5-2.5 1.7a15 15 0 0 0 4.8 4.8L15 13l5 2v4a2 2 0 0 1-2.2 2A18 18 0 0 1 3 6.2 2 2 0 0 1 5 4Z" />,
+    cart: <><path d="M3 4h2l2.2 11.2a2 2 0 0 0 2 1.6h8.5a2 2 0 0 0 1.9-1.4L21 8H6" /><circle cx="10" cy="20" r="1" /><circle cx="18" cy="20" r="1" /></>,
+    plus: <><path d="M12 5v14" /><path d="M5 12h14" /></>,
+    minus: <path d="M5 12h14" />,
+    close: <><path d="m6 6 12 12" /><path d="M18 6 6 18" /></>,
+    trash: <><path d="M4 7h16" /><path d="M10 11v6M14 11v6" /><path d="m5 7 1 13h12l1-13" /><path d="M9 7V4h6v3" /></>
   };
 
   return <svg className={className} viewBox="0 0 24 24" aria-hidden="true">{paths[name]}</svg>;
@@ -46,7 +67,7 @@ function LaptopIllustration({ product, index }) {
   );
 }
 
-function Header() {
+function Header({ cartCount, onOpenCart }) {
   return (
     <header className="site-header">
       <div className="wrap nav">
@@ -58,9 +79,14 @@ function Header() {
           <a href="#why-renovatech">Why refurbished</a>
           <a href="#contact">Contact</a>
         </nav>
-        <a className="header-cta" href={`https://wa.me/${phone}`} target="_blank" rel="noreferrer">
-          <Icon name="whatsapp" /> <span>Chat with us</span>
-        </a>
+        <div className="header-actions">
+          <button className="header-cart" type="button" onClick={onOpenCart} aria-label={`Open cart, ${cartCount} ${cartCount === 1 ? 'item' : 'items'}`}>
+            <Icon name="cart" /><span className="header-cart-label">Cart</span><span className="cart-count" aria-live="polite">{cartCount}</span>
+          </button>
+          <a className="header-cta" href={`https://wa.me/${phone}`} target="_blank" rel="noreferrer">
+            <Icon name="whatsapp" /> <span>Chat with us</span>
+          </a>
+        </div>
       </div>
     </header>
   );
@@ -100,10 +126,9 @@ function Hero({ totalUnits, modelCount, startingPrice }) {
   );
 }
 
-function ProductCard({ product, index }) {
+function ProductCard({ product, index, cartQuantity, onAddToCart }) {
   const available = product.quantity > 0;
-  const message = `Hi Renovatech, I’m interested in the ${product.model} (${product.configuration}) listed at ${formatPrice.format(product.price)}. Could you confirm availability and details?`;
-  const inquiryLink = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+  const atStockLimit = cartQuantity >= product.quantity;
 
   return (
     <article className="product-card">
@@ -111,7 +136,7 @@ function ProductCard({ product, index }) {
         <div className="product-art-top"><span>RENOVATECH · REUSE</span><span>{String(index + 1).padStart(2, '0')}</span></div>
         <LaptopIllustration product={product} index={index} />
         <span className={`stock-label${available ? '' : ' stock-label--out'}`}>
-          <span className="stock-dot" /> {available ? 'In stock' : 'Currently unavailable'}
+          <span className="stock-dot" /> {available ? 'In stock' : 'Out of stock'}
         </span>
       </div>
       <div className="product-info">
@@ -127,15 +152,15 @@ function ProductCard({ product, index }) {
           <div><span className="price-label">Price</span><strong className="price">{formatPrice.format(product.price)}</strong></div>
           <span className="quantity-label">{product.quantity} {product.quantity === 1 ? 'unit' : 'units'} available</span>
         </div>
-        <a className="product-cta" href={inquiryLink} target="_blank" rel="noreferrer">
-          {available ? 'Enquire on WhatsApp' : 'Ask about availability'} <Icon name="arrow" />
-        </a>
+        <button className="product-cta" type="button" onClick={() => onAddToCart(product)} disabled={!available || atStockLimit}>
+          {!available ? 'Out of stock' : atStockLimit ? 'Stock limit reached' : 'Add to cart'} <Icon name={available ? 'plus' : 'close'} />
+        </button>
       </div>
     </article>
   );
 }
 
-function Catalogue() {
+function Catalogue({ cartQuantities, onAddToCart }) {
   const [search, setSearch] = useState('');
   const [brand, setBrand] = useState('All');
   const [generation, setGeneration] = useState('All');
@@ -203,7 +228,7 @@ function Catalogue() {
 
         {filtered.length > 0 ? (
           <div className="product-grid">
-            {filtered.map((product, index) => <ProductCard key={product.id} product={product} index={index} />)}
+            {filtered.map((product, index) => <ProductCard key={product.id} product={product} index={index} cartQuantity={cartQuantities[product.id] || 0} onAddToCart={onAddToCart} />)}
           </div>
         ) : (
           <div className="empty-state">
@@ -217,6 +242,65 @@ function Catalogue() {
         <p className="catalogue-note">Prices are shown in Indian rupees. Stock and pricing reflect the latest published inventory.</p>
       </div>
     </section>
+  );
+}
+
+function CartDrawer({ cartItems, cartCount, onClose, onIncrease, onDecrease, onRemove }) {
+  const total = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  const orderMessage = [
+    'Hello Renovatech, I would like to place an order:',
+    ...cartItems.map(({ product, quantity }) => `• ${product.model} (${product.configuration}), ${quantity} × ${formatPrice.format(product.price)} = ${formatPrice.format(product.price * quantity)}`),
+    `Order total: ${formatPrice.format(total)}`,
+    '',
+    'Please confirm availability and share the payment link and delivery next steps.'
+  ].join('\n');
+  const whatsappOrderLink = `https://wa.me/${phone}?text=${encodeURIComponent(orderMessage)}`;
+
+  return (
+    <div className="cart-backdrop" onClick={onClose}>
+      <aside className="cart-drawer" role="dialog" aria-modal="true" aria-labelledby="cart-title" onClick={(event) => event.stopPropagation()}>
+        <div className="cart-drawer-header">
+          <div><span className="eyebrow">Your selection</span><h2 id="cart-title">Shopping cart <span>({cartCount})</span></h2></div>
+          <button className="cart-close" type="button" onClick={onClose} aria-label="Close cart"><Icon name="close" /></button>
+        </div>
+
+        {cartItems.length > 0 ? (
+          <>
+            <div className="cart-items">
+              {cartItems.map(({ product, quantity }) => (
+                <article className="cart-item" key={product.id}>
+                  <div className="cart-item-main">
+                    <div className="cart-item-name"><strong>{product.model}</strong><span>{product.configuration}</span></div>
+                    <strong className="cart-line-total">{formatPrice.format(product.price * quantity)}</strong>
+                  </div>
+                  <div className="cart-item-controls">
+                    <div className="quantity-control" aria-label={`Quantity for ${product.model}`}>
+                      <button type="button" onClick={() => onDecrease(product.id)} aria-label={`Decrease ${product.model} quantity`}>−</button>
+                      <span aria-live="polite">{quantity}</span>
+                      <button type="button" onClick={() => onIncrease(product)} disabled={quantity >= product.quantity} aria-label={`Increase ${product.model} quantity`}>+</button>
+                    </div>
+                    <span className="cart-unit-price">{formatPrice.format(product.price)} each</span>
+                    <button className="cart-remove" type="button" onClick={() => onRemove(product.id)}><Icon name="trash" /> Remove</button>
+                  </div>
+                </article>
+              ))}
+            </div>
+            <div className="cart-summary">
+              <div className="cart-total-row"><span>Grand total</span><strong>{formatPrice.format(total)}</strong></div>
+              <p>No payment or delivery details are collected here. Our team will confirm availability, send a payment link, and arrange delivery over WhatsApp.</p>
+              <a className="button button--dark cart-order-button" href={whatsappOrderLink} target="_blank" rel="noreferrer"><Icon name="whatsapp" /> Place order on WhatsApp</a>
+            </div>
+          </>
+        ) : (
+          <div className="cart-empty">
+            <Icon name="cart" />
+            <h3>Your cart is empty</h3>
+            <p>Add laptops from the catalogue to start an order.</p>
+            <button className="button button--dark" type="button" onClick={onClose}>Continue browsing</button>
+          </div>
+        )}
+      </aside>
+    </div>
   );
 }
 
@@ -263,19 +347,69 @@ function Contact() {
 }
 
 function App() {
+  const [cart, setCart] = useState(readCart);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+    } catch {
+      // The cart remains usable for this visit when browser storage is unavailable.
+    }
+  }, [cart]);
+
+  useEffect(() => {
+    if (!isCartOpen) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') setIsCartOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isCartOpen]);
+
+  const cartQuantities = useMemo(() => Object.fromEntries(cart.map((item) => [item.id, item.quantity])), [cart]);
+  const cartItems = cart.flatMap((item) => {
+    const product = inventory.find((entry) => entry.id === item.id);
+    return product ? [{ product, quantity: item.quantity }] : [];
+  });
+  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+  function addToCart(product) {
+    setCart((current) => {
+      const existingItem = current.find((item) => item.id === product.id);
+      if (!existingItem) return product.quantity > 0 ? [...current, { id: product.id, quantity: 1 }] : current;
+      if (existingItem.quantity >= product.quantity) return current;
+      return current.map((item) => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
+    });
+    setIsCartOpen(true);
+  }
+
+  function increaseCartItem(product) {
+    setCart((current) => current.map((item) => item.id === product.id && item.quantity < product.quantity
+      ? { ...item, quantity: item.quantity + 1 }
+      : item));
+  }
+
+  function decreaseCartItem(productId) {
+    setCart((current) => current.flatMap((item) => {
+      if (item.id !== productId) return [item];
+      return item.quantity > 1 ? [{ ...item, quantity: item.quantity - 1 }] : [];
+    }));
+  }
+
   const totalUnits = inventory.reduce((total, product) => total + product.quantity, 0);
   const startingPrice = Math.min(...inventory.map((product) => product.price));
 
   return (
     <>
-      <Header />
+      <Header cartCount={cartCount} onOpenCart={() => setIsCartOpen(true)} />
       <main>
         <Hero totalUnits={totalUnits} modelCount={inventory.length} startingPrice={startingPrice} />
-        <Catalogue />
+        <Catalogue cartQuantities={cartQuantities} onAddToCart={addToCart} />
         <About />
         <Contact />
       </main>
       <footer className="site-footer"><div className="wrap"><span>© {new Date().getFullYear()} Renovatech Solutions</span><span>Refurbished laptops, ready for their next chapter.</span></div></footer>
+      {isCartOpen && <CartDrawer cartItems={cartItems} cartCount={cartCount} onClose={() => setIsCartOpen(false)} onIncrease={increaseCartItem} onDecrease={decreaseCartItem} onRemove={(productId) => setCart((current) => current.filter((item) => item.id !== productId))} />}
     </>
   );
 }
