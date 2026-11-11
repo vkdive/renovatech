@@ -8,7 +8,9 @@ alter table public.products
   drop column if exists generation,
   drop column if exists ram_gb,
   drop column if exists storage_gb,
-  drop column if exists graphics_gb;
+  drop column if exists graphics_gb,
+  drop column if exists image_url,
+  drop column if exists image_path;
 
 notify pgrst, 'reload schema';
 commit;

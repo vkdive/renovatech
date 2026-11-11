@@ -115,10 +115,18 @@ nav a:hover { color: var(--green); }
 .product-art .product-photo { position: relative; z-index: 1; width: min(100%, 290px); max-height: 190px; margin-top: 18px; object-fit: contain; mix-blend-mode: multiply; transition: transform .3s ease; }
 .product-card:hover .product-art .laptop-illustration { transform: translateY(-4px) scale(1.025); }
 .product-card:hover .product-art .product-photo { transform: translateY(-4px) scale(1.025); }
+.product-image-nav { position: absolute; z-index: 3; top: 50%; display: grid; width: 36px; height: 36px; place-items: center; padding: 0 0 3px; transform: translateY(-50%); border: 1px solid rgba(255,255,255,.88); border-radius: 50%; background: rgba(255,255,255,.92); box-shadow: 0 3px 12px rgba(28,51,37,.12); color: #315e3d; font-size: 1.7rem; line-height: 1; cursor: pointer; }
+.product-image-nav:hover { background: #fff; color: #173b2e; }
+.product-image-nav--previous { left: 10px; }
+.product-image-nav--next { right: 10px; }
 .stock-label { position: absolute; z-index: 2; bottom: 14px; left: 15px; display: inline-flex; align-items: center; gap: 7px; padding: 7px 10px; border: 1px solid rgba(220,231,213,.8); border-radius: 999px; background: rgba(255,255,255,.86); color: #426d48; font-size: .7rem; font-weight: 700; }
 .stock-dot { width: 7px; height: 7px; border-radius: 50%; background: #65a95d; }
 .stock-label--out { color: #92725f; }
 .stock-label--out .stock-dot { background: #c3956d; }
+.product-image-thumbnails { display: flex; gap: 7px; overflow-x: auto; padding: 10px 20px 0; scrollbar-width: thin; }
+.product-image-thumbnail { display: grid; width: 43px; height: 38px; flex: 0 0 auto; place-items: center; overflow: hidden; padding: 2px; border: 1px solid #e1e9df; border-radius: 8px; background: #f6f8f3; cursor: pointer; }
+.product-image-thumbnail.is-active { border-color: #5e9460; box-shadow: 0 0 0 2px rgba(94,148,96,.15); }
+.product-image-thumbnail img { width: 100%; height: 100%; border-radius: 5px; object-fit: cover; }
 .product-info { padding: 20px 21px 21px; }
 .product-brand-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #869189; font-size: .73rem; }
 .product-brand { display: inline-flex; align-items: baseline; gap: 6px; color: #4f8157; font-size: .76rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }

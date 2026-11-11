@@ -9,6 +9,7 @@ import './admin.css';
 
 const money = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
 const savedInventory = savedCatalogueData.filter(isImportableProduct);
+const maxProductImages = 6;
 const emptyForm = {
   brand: '',
   modelNumber: '',
@@ -23,6 +24,7 @@ const emptyForm = {
 };
 
 function errorText(error) {
+  if (typeof error === 'string') return error;
   return error?.message || 'Something went wrong. Please try again.';
 }
 
@@ -47,10 +49,10 @@ function AdminApp() {
   const [products, setProducts] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState('');
-  const [existingImageUrl, setExistingImageUrl] = useState('');
-  const [existingImagePath, setExistingImagePath] = useState('');
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState('');
+  const [existingImages, setExistingImages] = useState([]);
+  const [keptImages, setKeptImages] = useState([]);
+  const [imageFiles, setImageFiles] = useState([]);
+  const [imagePreviews, setImagePreviews] = useState([]);
 
   useEffect(() => {
     if (!supabase) {
@@ -125,14 +127,10 @@ function AdminApp() {
   }, [isStaff]);
 
   useEffect(() => {
-    if (!imageFile) {
-      setImagePreview('');
-      return undefined;
-    }
-    const previewUrl = URL.createObjectURL(imageFile);
-    setImagePreview(previewUrl);
-    return () => URL.revokeObjectURL(previewUrl);
-  }, [imageFile]);
+    const previewUrls = imageFiles.map((file) => URL.createObjectURL(file));
+    setImagePreviews(previewUrls);
+    return () => previewUrls.forEach((previewUrl) => URL.revokeObjectURL(previewUrl));
+  }, [imageFiles]);
 
   async function signIn(event) {
     event.preventDefault();
@@ -196,9 +194,10 @@ function AdminApp() {
       price: String(product.price),
       quantity: String(product.quantity)
     });
-    setExistingImageUrl(product.imageUrl || '');
-    setExistingImagePath(product.imagePath || '');
-    setImageFile(null);
+    const currentImages = product.images || (product.imageUrl ? [{ id: 'legacy-image', imageUrl: product.imageUrl, imagePath: product.imagePath }] : []);
+    setExistingImages(currentImages);
+    setKeptImages(currentImages);
+    setImageFiles([]);
     setError('');
     setNotice(`Editing ${product.model}.`);
     document.querySelector('#product-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -207,9 +206,35 @@ function AdminApp() {
   function resetProductForm() {
     setForm(emptyForm);
     setEditingId('');
-    setExistingImageUrl('');
-    setExistingImagePath('');
-    setImageFile(null);
+    setExistingImages([]);
+    setKeptImages([]);
+    setImageFiles([]);
+  }
+
+  function addProductImages(event) {
+    const selectedFiles = Array.from(event.target.files || []);
+    // Reset the native input so the same file can be picked again after removal.
+    event.target.value = '';
+    if (!selectedFiles.length) return;
+
+    const validFiles = selectedFiles.filter((file) =>
+      ['image/jpeg', 'image/png', 'image/webp'].includes(file.type) && file.size <= 5 * 1024 * 1024
+    );
+    const invalidCount = selectedFiles.length - validFiles.length;
+    const uniqueFiles = validFiles.filter((file) => !imageFiles.some((current) =>
+      current.name === file.name && current.size === file.size && current.lastModified === file.lastModified
+    ));
+    const availableSlots = Math.max(0, maxProductImages - keptImages.length - imageFiles.length);
+    const filesToAdd = uniqueFiles.slice(0, availableSlots);
+
+    if (filesToAdd.length) setImageFiles((current) => [...current, ...filesToAdd]);
+    if (invalidCount) {
+      setError('Some photos were skipped. Choose JPEG, PNG, or WebP images under 5 MB each.');
+    } else if (filesToAdd.length < uniqueFiles.length) {
+      setError(`A product can have up to ${maxProductImages} images. Remove a photo before adding more.`);
+    } else {
+      setError('');
+    }
   }
 
   async function saveProduct(event) {
@@ -231,32 +256,22 @@ function AdminApp() {
       setError('Enter a brand, exact model number, non-negative price, and whole-number stock quantity.');
       return;
     }
-    if (imageFile && (!['image/jpeg', 'image/png', 'image/webp'].includes(imageFile.type) || imageFile.size > 5 * 1024 * 1024)) {
-      setError('Choose an image under 5 MB. Supported formats are JPEG, PNG, or WebP.');
+    if (keptImages.length + imageFiles.length > maxProductImages) {
+      setError(`A product can have up to ${maxProductImages} images.`);
+      return;
+    }
+    if (imageFiles.some((file) => !['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024)) {
+      setError('Choose images under 5 MB each. Supported formats are JPEG, PNG, or WebP.');
       return;
     }
 
     const productId = editingId || `${slugify(`${brand}-${modelNumber}`)}-${window.crypto?.randomUUID?.() || Date.now().toString(36)}`;
-    let imageUrl = existingImageUrl;
-    let imagePath = existingImagePath;
-    let newlyUploadedPath = '';
+    const removedImages = existingImages.filter((image) => !keptImages.some((keptImage) => keptImage.id === image.id));
+    const newlyUploadedPaths = [];
+    let productSaved = false;
 
     try {
       setBusy(true);
-      if (imageFile) {
-        const safeName = imageFile.name.replace(/[^a-z0-9._-]/gi, '-');
-        const uploadPath = `${productId}/${Date.now()}-${safeName}`;
-        const { error: uploadError } = await supabase.storage.from('product-images').upload(uploadPath, imageFile, {
-          cacheControl: '3600',
-          contentType: imageFile.type,
-          upsert: false
-        });
-        if (uploadError) throw uploadError;
-        newlyUploadedPath = uploadPath;
-        imagePath = uploadPath;
-        imageUrl = supabase.storage.from('product-images').getPublicUrl(uploadPath).data.publicUrl;
-      }
-
       const product = toCatalogProduct(productId, {
         model,
         modelNumber,
@@ -269,21 +284,54 @@ function AdminApp() {
         operatingSystem,
         price,
         quantity,
-        imageUrl,
-        imagePath
+        images: keptImages
       });
       const { error: saveError } = await supabase.from('products').upsert(toSupabaseProduct(product), { onConflict: 'id' });
       if (saveError) throw saveError;
+      productSaved = true;
 
-      if (newlyUploadedPath && existingImagePath && existingImagePath !== newlyUploadedPath) {
-        const { error: removeError } = await supabase.storage.from('product-images').remove([existingImagePath]);
-        if (removeError) console.warn('Could not remove the replaced product image:', removeError.message);
+      const imageRows = [];
+      const firstPosition = keptImages.reduce((highest, image) => Math.max(highest, Number(image.position) || 0), -1) + 1;
+      for (const [index, imageFile] of imageFiles.entries()) {
+        const safeName = imageFile.name.replace(/[^a-z0-9._-]/gi, '-');
+        const uploadPath = `${productId}/${Date.now()}-${index}-${safeName}`;
+        const { error: uploadError } = await supabase.storage.from('product-images').upload(uploadPath, imageFile, {
+          cacheControl: '3600',
+          contentType: imageFile.type,
+          upsert: false
+        });
+        if (uploadError) throw uploadError;
+        newlyUploadedPaths.push(uploadPath);
+        imageRows.push({
+          product_id: productId,
+          image_url: supabase.storage.from('product-images').getPublicUrl(uploadPath).data.publicUrl,
+          image_path: uploadPath,
+          position: firstPosition + index
+        });
       }
-      setNotice(`${model} ${editingId ? 'updated' : 'added'} to the catalogue.`);
+
+      if (imageRows.length) {
+        const { error: imageInsertError } = await supabase.from('product_images').insert(imageRows);
+        if (imageInsertError) throw imageInsertError;
+      }
+
+      if (removedImages.length) {
+        const { error: removeRowsError } = await supabase.from('product_images').delete().in('id', removedImages.map((image) => image.id));
+        if (removeRowsError) throw removeRowsError;
+        const paths = removedImages.map((image) => image.imagePath).filter(Boolean);
+        if (paths.length) {
+          const { error: removeFilesError } = await supabase.storage.from('product-images').remove(paths);
+          if (removeFilesError) console.warn('Could not remove some deleted product images:', removeFilesError.message);
+        }
+      }
+      setNotice(`${model} ${editingId ? 'updated' : 'added'} with ${keptImages.length + imageFiles.length} image${keptImages.length + imageFiles.length === 1 ? '' : 's'}.`);
       resetProductForm();
     } catch (saveError) {
-      if (newlyUploadedPath) await supabase.storage.from('product-images').remove([newlyUploadedPath]);
-      setError(`Could not save this product: ${errorText(saveError)}`);
+      if (newlyUploadedPaths.length) {
+        await supabase.from('product_images').delete().in('image_path', newlyUploadedPaths);
+        await supabase.storage.from('product-images').remove(newlyUploadedPaths);
+      }
+      setError(`${productSaved ? 'Product details were saved, but images could not be updated' : 'Could not save this product'}: ${errorText(saveError)}`);
     } finally {
       setBusy(false);
     }
@@ -297,8 +345,9 @@ function AdminApp() {
       setBusy(true);
       const { error: deleteError } = await supabase.from('products').delete().eq('id', product.id);
       if (deleteError) throw deleteError;
-      if (product.imagePath) {
-        const { error: imageError } = await supabase.storage.from('product-images').remove([product.imagePath]);
+      const imagePaths = (product.images || []).map((image) => image.imagePath).filter(Boolean);
+      if (imagePaths.length) {
+        const { error: imageError } = await supabase.storage.from('product-images').remove(imagePaths);
         if (imageError) console.warn('Product was deleted, but its image could not be removed:', imageError.message);
       }
       if (editingId === product.id) resetProductForm();
@@ -388,9 +437,24 @@ function AdminApp() {
                     <label>Price (INR)<input type="number" min="0" step="1" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} placeholder="28000" required /></label>
                     <label>Quantity<input type="number" min="0" step="1" value={form.quantity} onChange={(event) => setForm({ ...form, quantity: event.target.value })} placeholder="2" required /></label>
                   </div>
-                  <label>Product image <span className="admin-optional">optional</span><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setImageFile(event.target.files?.[0] || null)} /></label>
-                  <p className="admin-field-hint">JPEG, PNG, or WebP · Maximum 5 MB</p>
-                  {(imagePreview || existingImageUrl) && <img className="admin-image-preview" src={imagePreview || existingImageUrl} alt="Product preview" />}
+                  <label>Product photos <span className="admin-optional">optional · up to {maxProductImages}</span><input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={addProductImages} /></label>
+                  <p className="admin-field-hint">Select several photos together, or add more in another selection. JPEG, PNG, or WebP · Maximum 5 MB each · {keptImages.length + imageFiles.length} of {maxProductImages} selected</p>
+                  {(keptImages.length > 0 || imagePreviews.length > 0) && (
+                    <div className="admin-image-grid">
+                      {keptImages.map((image, index) => (
+                        <div className="admin-image-preview-card" key={image.id}>
+                          <img className="admin-image-preview" src={image.imageUrl} alt={`Product photo ${index + 1}`} />
+                          <button className="admin-image-remove" type="button" onClick={() => setKeptImages((current) => current.filter((item) => item.id !== image.id))}>Remove</button>
+                        </div>
+                      ))}
+                      {imagePreviews.map((preview, index) => (
+                        <div className="admin-image-preview-card" key={`${imageFiles[index]?.name}-${imageFiles[index]?.lastModified}-${index}`}>
+                          <img className="admin-image-preview" src={preview} alt={`New product photo ${index + 1}`} />
+                          <button className="admin-image-remove" type="button" onClick={() => setImageFiles((current) => current.filter((_, fileIndex) => fileIndex !== index))}>Remove</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <button className="admin-button admin-button--primary" type="submit" disabled={busy}>{busy ? 'Saving…' : editingId ? 'Save changes' : 'Add product'}</button>
                 </form>
               </section>

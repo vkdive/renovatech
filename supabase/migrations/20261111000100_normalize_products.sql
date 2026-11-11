@@ -18,6 +18,54 @@ alter table public.products
   add column if not exists created_at timestamptz not null default now(),
   add column if not exists updated_at timestamptz not null default now();
 
+create table if not exists public.product_images (
+  id uuid primary key default gen_random_uuid(),
+  product_id text not null references public.products (id) on delete cascade,
+  image_url text not null,
+  image_path text,
+  position integer not null default 0 check (position >= 0),
+  created_at timestamptz not null default now()
+);
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint c
+    where c.contype = 'f'
+      and c.conrelid = 'public.product_images'::regclass
+      and c.confrelid = 'public.products'::regclass
+      and array_length(c.conkey, 1) = 1
+      and array_length(c.confkey, 1) = 1
+      and (select attname from pg_attribute where attrelid = c.conrelid and attnum = c.conkey[1]) = 'product_id'
+      and (select attname from pg_attribute where attrelid = c.confrelid and attnum = c.confkey[1]) = 'id'
+  ) then
+    alter table public.product_images
+      add constraint product_images_product_id_fkey
+      foreign key (product_id) references public.products (id) on delete cascade;
+  end if;
+end;
+$$;
+create index if not exists product_images_product_position_idx
+  on public.product_images (product_id, position, id);
+
+-- Preserve the existing single image as image 1 before the app starts using the
+-- product_images relation. The NOT EXISTS clause makes this safe to rerun.
+insert into public.product_images (product_id, image_url, image_path, position)
+select
+  p.id,
+  nullif(btrim(to_jsonb(p) ->> 'image_url'), ''),
+  nullif(btrim(to_jsonb(p) ->> 'image_path'), ''),
+  0
+from public.products p
+where nullif(btrim(to_jsonb(p) ->> 'image_url'), '') is not null
+  and not exists (
+    select 1
+    from public.product_images pi
+    where pi.product_id = p.id
+      and pi.image_url = nullif(btrim(to_jsonb(p) ->> 'image_url'), '')
+      and pi.image_path is not distinct from nullif(btrim(to_jsonb(p) ->> 'image_path'), '')
+  );
+
 -- Read legacy values through JSON so this works whether optional old columns exist or not.
 with original as (
   select id, to_jsonb(p) as data
@@ -143,6 +191,25 @@ alter table public.products
   alter column created_at set not null,
   alter column updated_at set default now(),
   alter column updated_at set not null;
+
+-- Let the old deployed app keep writing during rollout, while allowing the new
+-- app to omit these soon-to-be-dropped NOT NULL columns on inserts.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'products' and column_name = 'model'
+  ) then
+    execute 'alter table public.products alter column model set default ''Unspecified model''';
+  end if;
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'products' and column_name = 'configuration'
+  ) then
+    execute 'alter table public.products alter column configuration set default ''Specifications not provided''';
+  end if;
+end;
+$$;
 
 notify pgrst, 'reload schema';
 commit;

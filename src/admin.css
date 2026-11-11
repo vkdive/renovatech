@@ -53,7 +53,11 @@ button { cursor: pointer; }
 .admin-field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .admin-field-hint { margin: -9px 0 0; color: #839087; font-size: .75rem; line-height: 1.5; }
 .admin-optional { display: inline; color: #98a49a; font-size: .72rem; font-weight: 500; }
-.admin-image-preview { width: 100%; max-height: 220px; object-fit: contain; border: 1px solid #e1e9de; border-radius: 12px; background: #f4f7f1; }
+.admin-image-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.admin-image-preview-card { display: grid; min-width: 0; gap: 6px; }
+.admin-image-preview { width: 100%; height: 100px; object-fit: cover; border: 1px solid #e1e9de; border-radius: 10px; background: #f4f7f1; }
+.admin-image-remove { justify-self: start; padding: 4px 0; border: 0; background: none; color: #995644; font-size: .74rem; font-weight: 700; }
+.admin-image-new-label { color: #68856b; font-size: .72rem; font-weight: 700; }
 .admin-list-count { display: inline-grid; min-width: 25px; height: 25px; place-items: center; padding: 0 7px; border-radius: 999px; background: #edf4e9; color: #537b53; font-size: .72rem; font-weight: 800; }
 .admin-products-card { overflow: hidden; }
 .admin-product-list { display: grid; }

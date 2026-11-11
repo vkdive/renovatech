@@ -47,11 +47,39 @@ create table if not exists public.products (
   operating_system text,
   price numeric(12, 2) not null check (price >= 0),
   quantity integer not null check (quantity >= 0),
-  image_url text,
-  image_path text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+create table if not exists public.product_images (
+  id uuid primary key default gen_random_uuid(),
+  product_id text not null references public.products (id) on delete cascade,
+  image_url text not null,
+  image_path text,
+  position integer not null default 0 check (position >= 0),
+  created_at timestamptz not null default now()
+);
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint c
+    where c.contype = 'f'
+      and c.conrelid = 'public.product_images'::regclass
+      and c.confrelid = 'public.products'::regclass
+      and array_length(c.conkey, 1) = 1
+      and array_length(c.confkey, 1) = 1
+      and (select attname from pg_attribute where attrelid = c.conrelid and attnum = c.conkey[1]) = 'product_id'
+      and (select attname from pg_attribute where attrelid = c.confrelid and attnum = c.confkey[1]) = 'id'
+  ) then
+    alter table public.product_images
+      add constraint product_images_product_id_fkey
+      foreign key (product_id) references public.products (id) on delete cascade;
+  end if;
+end;
+$$;
+create index if not exists product_images_product_position_idx
+  on public.product_images (product_id, position, id);
 
 alter table public.products enable row level security;
 revoke all on table public.products from anon, authenticated;
@@ -73,6 +101,28 @@ create policy "Authorized staff can update products"
 drop policy if exists "Authorized staff can delete products" on public.products;
 create policy "Authorized staff can delete products"
   on public.products for delete to authenticated
+  using ((select public.has_inventory_access()));
+
+alter table public.product_images enable row level security;
+revoke all on table public.product_images from anon, authenticated;
+grant select on table public.product_images to anon, authenticated;
+grant insert, update, delete on table public.product_images to authenticated;
+drop policy if exists "Anyone can view product image records" on public.product_images;
+create policy "Anyone can view product image records"
+  on public.product_images for select to anon, authenticated
+  using (true);
+drop policy if exists "Authorized staff can add product image records" on public.product_images;
+create policy "Authorized staff can add product image records"
+  on public.product_images for insert to authenticated
+  with check ((select public.has_inventory_access()));
+drop policy if exists "Authorized staff can update product image records" on public.product_images;
+create policy "Authorized staff can update product image records"
+  on public.product_images for update to authenticated
+  using ((select public.has_inventory_access()))
+  with check ((select public.has_inventory_access()));
+drop policy if exists "Authorized staff can delete product image records" on public.product_images;
+create policy "Authorized staff can delete product image records"
+  on public.product_images for delete to authenticated
   using ((select public.has_inventory_access()));
 
 create or replace function public.set_products_updated_at()
@@ -125,6 +175,14 @@ begin
       and tablename = 'products'
   ) then
     alter publication supabase_realtime add table public.products;
+  end if;
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'product_images'
+  ) then
+    alter publication supabase_realtime add table public.product_images;
   end if;
 end;
 $$;

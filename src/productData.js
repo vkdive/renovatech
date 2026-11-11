@@ -55,6 +55,25 @@ export function toCatalogProduct(id, source) {
   const storage = String(source.storage || source.storage_spec || (storageGb !== null ? `${storageGb} GB` : '')).trim();
   const gpu = String(source.gpu || (graphicsGb !== null ? `${graphicsGb} GB graphics` : '')).trim();
   const configuration = legacyConfiguration || [processor, generation, memory, storage, gpu].filter(Boolean).join(' · ');
+  const imageRows = Array.isArray(source.images)
+    ? source.images
+    : Array.isArray(source.product_images)
+      ? source.product_images
+      : [];
+  const images = imageRows
+    .map((image, index) => ({
+      id: String(image.id || `${source.id || id}-image-${index}`),
+      imageUrl: String(image.imageUrl || image.image_url || ''),
+      imagePath: String(image.imagePath || image.image_path || ''),
+      position: Number(image.position) || index
+    }))
+    .filter((image) => image.imageUrl)
+    .sort((a, b) => a.position - b.position);
+  const legacyImageUrl = String(source.imageUrl || source.image_url || '');
+  const legacyImagePath = String(source.imagePath || source.image_path || '');
+  if (images.length === 0 && !Array.isArray(source.product_images) && legacyImageUrl) {
+    images.push({ id: `${source.id || id}-legacy-image`, imageUrl: legacyImageUrl, imagePath: legacyImagePath, position: 0 });
+  }
 
   return {
     id: String(source.id || id),
@@ -71,8 +90,9 @@ export function toCatalogProduct(id, source) {
     operatingSystem: String(source.operatingSystem || source.operating_system || '').trim(),
     price: Number(source.price) || 0,
     quantity: Math.max(0, Math.floor(Number(source.quantity) || 0)),
-    imageUrl: String(source.imageUrl || source.image_url || ''),
-    imagePath: String(source.imagePath || source.image_path || '')
+    images,
+    imageUrl: images[0]?.imageUrl || legacyImageUrl,
+    imagePath: images[0]?.imagePath || legacyImagePath
   };
 }
 
@@ -103,7 +123,5 @@ export function toSupabaseProduct(product) {
     operating_system: product.operatingSystem || null,
     price: product.price,
     quantity: product.quantity,
-    image_url: product.imageUrl || null,
-    image_path: product.imagePath || null
   };
 }

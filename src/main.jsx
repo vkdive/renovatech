@@ -138,8 +138,12 @@ function Hero({ totalUnits, modelCount, startingPrice }) {
 }
 
 function ProductCard({ product, index, cartQuantity, onAddToCart }) {
+  const [activeImageId, setActiveImageId] = useState('');
   const available = product.quantity > 0;
   const atStockLimit = cartQuantity >= product.quantity;
+  const images = product.images || [];
+  const activeImageIndex = Math.max(0, images.findIndex((image) => image.id === activeImageId));
+  const activeImage = images[activeImageIndex];
   const enquiryMessage = `Hi Renovatech, I’d like to enquire about the ${product.model} (${product.configuration}) listed at ${formatPrice.format(product.price)}. Could you confirm availability and details?`;
   const enquiryLink = `https://wa.me/${phone}?text=${encodeURIComponent(enquiryMessage)}`;
   const specifications = [
@@ -155,11 +159,45 @@ function ProductCard({ product, index, cartQuantity, onAddToCart }) {
     <article className="product-card">
       <div className={`product-art product-art--${index % 4}`}>
         <div className="product-art-top"><span>RENOVATECH · REUSE</span><span>{String(index + 1).padStart(2, '0')}</span></div>
-        {product.imageUrl ? <img className="product-photo" src={product.imageUrl} alt={`${product.model} laptop`} /> : <LaptopIllustration product={product} index={index} />}
+        {activeImage || product.imageUrl
+          ? <img key={activeImage?.id || product.imageUrl} className="product-photo" src={activeImage?.imageUrl || product.imageUrl} alt={`${product.model} laptop${images.length > 1 ? ` photo ${activeImageIndex + 1} of ${images.length}` : ''}`} />
+          : <LaptopIllustration product={product} index={index} />}
+        {images.length > 1 && (
+          <>
+            <button
+              className="product-image-nav product-image-nav--previous"
+              type="button"
+              onClick={() => setActiveImageId(images[(activeImageIndex + images.length - 1) % images.length].id)}
+              aria-label={`View previous photo of ${product.model}`}
+            >‹</button>
+            <button
+              className="product-image-nav product-image-nav--next"
+              type="button"
+              onClick={() => setActiveImageId(images[(activeImageIndex + 1) % images.length].id)}
+              aria-label={`View next photo of ${product.model}`}
+            >›</button>
+          </>
+        )}
         <span className={`stock-label${available ? '' : ' stock-label--out'}`}>
           <span className="stock-dot" /> {available ? 'In stock' : 'Out of stock'}
         </span>
       </div>
+      {images.length > 1 && (
+        <div className="product-image-thumbnails" aria-label={`Photos of ${product.model}`}>
+          {images.map((image, imageIndex) => (
+            <button
+              className={`product-image-thumbnail${activeImage?.id === image.id ? ' is-active' : ''}`}
+              key={image.id}
+              type="button"
+              onClick={() => setActiveImageId(image.id)}
+              aria-label={`View photo ${imageIndex + 1} of ${images.length} for ${product.model}`}
+              aria-pressed={activeImage?.id === image.id}
+            >
+              <img src={image.imageUrl} alt="" />
+            </button>
+          ))}
+        </div>
+      )}
       <div className="product-info">
         <div className="product-brand-row"><span className="product-brand"><small>Brand</small>{product.brand || 'Not specified'}</span><span>Refurbished laptop</span></div>
         <h3>{product.modelNumber || product.model}</h3>
