@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import logo from '../renovatech-logo.jpeg';
-import inventory from './products.json';
+import workbookInventory from './products.json';
+import { supabaseConfigured } from './supabase.js';
+import { subscribeCatalog } from './supabase-catalog.js';
 import './styles.css';
 
 const phone = '919739224269';
@@ -17,10 +19,10 @@ function readCart() {
     const savedCart = JSON.parse(window.localStorage.getItem(CART_STORAGE_KEY) || '[]');
     if (!Array.isArray(savedCart)) return [];
 
-    return inventory.flatMap((product) => {
-      const savedItem = savedCart.find((item) => item?.id === product.id);
-      const quantity = Math.min(product.quantity, Math.floor(Number(savedItem?.quantity) || 0));
-      return quantity > 0 ? [{ id: product.id, quantity }] : [];
+    return savedCart.flatMap((item) => {
+      const id = String(item?.id || '');
+      const quantity = Math.floor(Number(item?.quantity) || 0);
+      return id && quantity > 0 ? [{ id, quantity }] : [];
     });
   } catch {
     return [];
@@ -141,7 +143,7 @@ function ProductCard({ product, index, cartQuantity, onAddToCart }) {
     <article className="product-card">
       <div className={`product-art product-art--${index % 4}`}>
         <div className="product-art-top"><span>RENOVATECH · REUSE</span><span>{String(index + 1).padStart(2, '0')}</span></div>
-        <LaptopIllustration product={product} index={index} />
+        {product.imageUrl ? <img className="product-photo" src={product.imageUrl} alt={`${product.model} laptop`} /> : <LaptopIllustration product={product} index={index} />}
         <span className={`stock-label${available ? '' : ' stock-label--out'}`}>
           <span className="stock-dot" /> {available ? 'In stock' : 'Out of stock'}
         </span>
@@ -170,16 +172,16 @@ function ProductCard({ product, index, cartQuantity, onAddToCart }) {
   );
 }
 
-function Catalogue({ cartQuantities, onAddToCart }) {
+function Catalogue({ inventory, cartQuantities, onAddToCart }) {
   const [search, setSearch] = useState('');
   const [brand, setBrand] = useState('All');
   const [generation, setGeneration] = useState('All');
   const [sort, setSort] = useState('featured');
-  const brands = useMemo(() => ['All', ...new Set(inventory.map((product) => product.brand))], []);
+  const brands = useMemo(() => ['All', ...new Set(inventory.map((product) => product.brand))], [inventory]);
   const generations = useMemo(
     () => [...new Set(inventory.map((product) => product.generation).filter(Boolean))]
       .sort((a, b) => Number.parseInt(a, 10) - Number.parseInt(b, 10)),
-    []
+    [inventory]
   );
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -194,7 +196,7 @@ function Catalogue({ cartQuantities, onAddToCart }) {
     if (sort === 'price-high') products.sort((a, b) => b.price - a.price);
     if (sort === 'stock') products.sort((a, b) => b.quantity - a.quantity);
     return products;
-  }, [search, brand, generation, sort]);
+  }, [inventory, search, brand, generation, sort]);
 
   return (
     <section className="catalogue-section" id="catalogue">
@@ -243,9 +245,9 @@ function Catalogue({ cartQuantities, onAddToCart }) {
         ) : (
           <div className="empty-state">
             <span className="empty-state-icon">⌕</span>
-            <h3>No laptops match those filters.</h3>
-            <p>Try another model, brand, or processor generation.</p>
-            <button className="button button--dark" onClick={() => { setSearch(''); setBrand('All'); setGeneration('All'); }}>Clear filters</button>
+            <h3>{inventory.length ? 'No laptops match those filters.' : 'No laptops are listed right now.'}</h3>
+            <p>{inventory.length ? 'Try another model, brand, or processor generation.' : 'Please check back soon or contact our team.'}</p>
+            {inventory.length > 0 && <button className="button button--dark" onClick={() => { setSearch(''); setBrand('All'); setGeneration('All'); }}>Clear filters</button>}
           </div>
         )}
 
@@ -409,6 +411,23 @@ function Contact() {
 function App() {
   const [cart, setCart] = useState(readCart);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [inventory, setInventory] = useState(workbookInventory);
+  const [catalogReady, setCatalogReady] = useState(!supabaseConfigured);
+
+  useEffect(() => subscribeCatalog((products) => {
+    setInventory(products);
+    setCatalogReady(true);
+  }), []);
+
+  useEffect(() => {
+    if (!catalogReady) return;
+    setCart((current) => current.flatMap((item) => {
+      const product = inventory.find((entry) => entry.id === item.id);
+      const quantity = Math.min(product?.quantity || 0, item.quantity);
+      return product && quantity > 0 ? [{ id: item.id, quantity }] : [];
+    }));
+  }, [catalogReady, inventory]);
+
   useEffect(() => {
     try {
       window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
@@ -457,14 +476,14 @@ function App() {
   }
 
   const totalUnits = inventory.reduce((total, product) => total + product.quantity, 0);
-  const startingPrice = Math.min(...inventory.map((product) => product.price));
+  const startingPrice = inventory.length ? Math.min(...inventory.map((product) => product.price)) : 0;
 
   return (
     <>
       <Header cartCount={cartCount} onOpenCart={() => setIsCartOpen(true)} />
       <main>
         <Hero totalUnits={totalUnits} modelCount={inventory.length} startingPrice={startingPrice} />
-        <Catalogue cartQuantities={cartQuantities} onAddToCart={addToCart} />
+        <Catalogue inventory={inventory} cartQuantities={cartQuantities} onAddToCart={addToCart} />
         <About />
         <Contact />
       </main>
