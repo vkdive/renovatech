@@ -306,8 +306,10 @@ function Catalogue({ inventory, cartQuantities, onAddToCart }) {
   );
 }
 
-function CartDrawer({ cartItems, cartCount, onClose, onIncrease, onDecrease, onRemove }) {
+function CartDrawer({ cartItems, cartCount, onClose, onIncrease, onDecrease, onRemove, onClearCart }) {
   const [showCustomerForm, setShowCustomerForm] = useState(false);
+  const [pendingOrder, setPendingOrder] = useState(null);
+  const [orderConfirmed, setOrderConfirmed] = useState(false);
   const total = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
 
   function handleSubmitOrder(event) {
@@ -336,6 +338,12 @@ function CartDrawer({ cartItems, cartCount, onClose, onIncrease, onDecrease, onR
     ].join('\n');
     const whatsappOrderLink = `https://wa.me/${phone}?text=${encodeURIComponent(orderMessage)}`;
     window.open(whatsappOrderLink, '_blank', 'noopener,noreferrer');
+    setPendingOrder({ orderId, whatsappOrderLink });
+  }
+
+  function confirmOrderSent() {
+    setOrderConfirmed(true);
+    onClearCart();
   }
 
   return (
@@ -346,7 +354,29 @@ function CartDrawer({ cartItems, cartCount, onClose, onIncrease, onDecrease, onR
           <button className="cart-close" type="button" onClick={onClose} aria-label="Close cart"><Icon name="close" /></button>
         </div>
 
-        {cartItems.length > 0 ? showCustomerForm ? (
+        {orderConfirmed ? (
+          <div className="checkout-flow checkout-complete" role="status">
+            <span className="checkout-complete-icon" aria-hidden="true">✓</span>
+            <span className="eyebrow">Thank you</span>
+            <h3>Your order has been placed</h3>
+            <p>Order reference: <strong>{pendingOrder?.orderId}</strong></p>
+            <p>Our team will confirm availability and follow up with you on WhatsApp.</p>
+            <button className="button button--dark cart-order-button" type="button" disabled>Order placed</button>
+          </div>
+        ) : cartItems.length > 0 ? showCustomerForm ? pendingOrder ? (
+          <div className="checkout-flow">
+            <button className="checkout-back" type="button" onClick={() => { setPendingOrder(null); setShowCustomerForm(false); }}>← Back to cart</button>
+            <div className="checkout-flow-heading">
+              <span className="eyebrow">Complete in WhatsApp</span>
+              <h3>Send your order</h3>
+              <p>WhatsApp opened with your order details. Tap Send there, then return here to mark your order as placed.</p>
+            </div>
+            <div className="checkout-flow-total checkout-order-reference"><span>Order reference</span><strong>{pendingOrder.orderId}</strong></div>
+            <a className="button button--dark checkout-whatsapp-link" href={pendingOrder.whatsappOrderLink} target="_blank" rel="noreferrer"><Icon name="whatsapp" /> Open WhatsApp order</a>
+            <button className="button button--dark cart-order-button" type="button" onClick={confirmOrderSent}>I’ve placed my order</button>
+            <p className="checkout-confirm-hint">Tap this after you have sent the order message in WhatsApp.</p>
+          </div>
+        ) : (
           <div className="checkout-flow">
             <button className="checkout-back" type="button" onClick={() => setShowCustomerForm(false)}>← Back to cart</button>
             <div className="checkout-flow-heading">
@@ -537,7 +567,7 @@ function App() {
         <Contact />
       </main>
       <footer className="site-footer"><div className="wrap"><span>© {new Date().getFullYear()} Renovatech Solutions</span><span>Refurbished laptops, ready for their next chapter.</span></div></footer>
-      {isCartOpen && <CartDrawer cartItems={cartItems} cartCount={cartCount} onClose={() => setIsCartOpen(false)} onIncrease={increaseCartItem} onDecrease={decreaseCartItem} onRemove={(productId) => setCart((current) => current.filter((item) => item.id !== productId))} />}
+      {isCartOpen && <CartDrawer cartItems={cartItems} cartCount={cartCount} onClose={() => setIsCartOpen(false)} onIncrease={increaseCartItem} onDecrease={decreaseCartItem} onRemove={(productId) => setCart((current) => current.filter((item) => item.id !== productId))} onClearCart={() => setCart([])} />}
     </>
   );
 }

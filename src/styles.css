@@ -196,6 +196,7 @@ nav a:hover { color: var(--green); }
 .checkout-flow-heading p { margin: 0; color: #718077; font-size: .84rem; line-height: 1.55; }
 .checkout-flow-total { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 20px; padding: 14px; border: 1px solid #e0e9db; border-radius: 12px; background: #fff; color: #52665a; font-size: .86rem; }
 .checkout-flow-total strong { color: #173c32; font-family: Manrope, sans-serif; font-size: 1.2rem; }
+.checkout-order-reference strong { font-size: .78rem; overflow-wrap: anywhere; text-align: right; }
 .checkout-form { display: grid; gap: 14px; margin-top: 20px; }
 .checkout-field { display: grid; gap: 6px; color: #52665a; font-size: .82rem; font-weight: 700; }
 .checkout-field input { width: 100%; min-height: 46px; padding: 0 12px; border: 1px solid #dfe7db; border-radius: 10px; background: #fff; color: #17342b; font-size: .92rem; }
@@ -207,6 +208,14 @@ nav a:hover { color: var(--green); }
 .checkout-data-note li { padding-left: 1px; }
 .checkout-data-note .checkout-data-action { margin-top: 11px; padding-top: 9px; border-top: 1px solid #d5e5cd; color: #405d47; font-weight: 600; }
 .checkout-form .button { width: 100%; }
+.checkout-whatsapp-link { width: 100%; margin-top: 18px; text-decoration: none; }
+.checkout-confirm-hint { margin: 2px 0 0; color: #718077; font-size: .76rem; line-height: 1.5; text-align: center; }
+.checkout-complete { display: flex; flex-direction: column; justify-content: center; gap: 12px; }
+.checkout-complete h3 { margin: 0; font-size: 1.55rem; letter-spacing: -.04em; }
+.checkout-complete p { margin: 0; color: #65766a; font-size: .86rem; line-height: 1.55; }
+.checkout-complete p strong { color: #244d37; }
+.checkout-complete-icon { display: grid; width: 48px; height: 48px; place-items: center; border-radius: 50%; background: #e6f3df; color: #397343; font-size: 1.6rem; font-weight: 800; }
+.checkout-complete .button:disabled { opacity: 1; background: #527c54; cursor: default; }
 .cart-empty { display: flex; flex: 1; align-items: center; justify-content: center; flex-direction: column; padding: 30px; text-align: center; }
 .cart-empty > svg { width: 44px; height: 44px; margin-bottom: 14px; fill: none; stroke: #75a36a; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.6; }
 .cart-empty h3 { margin: 0 0 6px; font-size: 1.3rem; }
