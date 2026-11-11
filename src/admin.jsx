@@ -1,14 +1,26 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import logo from '../renovatech-logo.jpeg';
-import inventory from './products.json';
-import { toCatalogProduct, toSupabaseProduct } from './productData.js';
+import savedCatalogueData from './products.json';
+import { isImportableProduct, toCatalogProduct, toSupabaseProduct } from './productData.js';
 import { supabase, supabaseConfigured } from './supabase.js';
 import { subscribeCatalog } from './supabase-catalog.js';
 import './admin.css';
 
 const money = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
-const emptyForm = { model: '', configuration: '', price: '', quantity: '' };
+const savedInventory = savedCatalogueData.filter(isImportableProduct);
+const emptyForm = {
+  brand: '',
+  modelNumber: '',
+  processor: '',
+  memory: '',
+  storage: '',
+  gpu: '',
+  display: '',
+  operatingSystem: '',
+  price: '',
+  quantity: ''
+};
 
 function errorText(error) {
   return error?.message || 'Something went wrong. Please try again.';
@@ -153,18 +165,18 @@ function AdminApp() {
     }
   }
 
-  async function importWorkbookProducts() {
+  async function importSavedCatalogue() {
     if (!supabase || !isStaff) return;
     try {
       setBusy(true);
-      const rows = inventory.map((product) => toSupabaseProduct(toCatalogProduct(product.id, product)));
+      const rows = savedInventory.map((product) => toSupabaseProduct(toCatalogProduct(product.id, product)));
       for (let start = 0; start < rows.length; start += 500) {
         const { error: importError } = await supabase.from('products').upsert(rows.slice(start, start + 500), { onConflict: 'id' });
         if (importError) throw importError;
       }
-      setNotice(`Imported ${inventory.length} products from the latest workbook build.`);
+      setNotice(`Imported ${savedInventory.length} products from the saved catalogue.`);
     } catch (importError) {
-      setError(`Could not import the workbook catalogue: ${errorText(importError)}`);
+      setError(`Could not import the saved catalogue: ${errorText(importError)}`);
     } finally {
       setBusy(false);
     }
@@ -172,7 +184,18 @@ function AdminApp() {
 
   function selectProduct(product) {
     setEditingId(product.id);
-    setForm({ model: product.model, configuration: product.configuration, price: String(product.price), quantity: String(product.quantity) });
+    setForm({
+      brand: product.brand || '',
+      modelNumber: product.modelNumber || product.model || '',
+      processor: [product.processor, product.generation].filter(Boolean).join(' · '),
+      memory: product.memory || '',
+      storage: product.storage || '',
+      gpu: product.gpu || '',
+      display: product.display || '',
+      operatingSystem: product.operatingSystem || '',
+      price: String(product.price),
+      quantity: String(product.quantity)
+    });
     setExistingImageUrl(product.imageUrl || '');
     setExistingImagePath(product.imagePath || '');
     setImageFile(null);
@@ -193,12 +216,19 @@ function AdminApp() {
     event.preventDefault();
     setError('');
     setNotice('');
-    const model = form.model.trim();
-    const configuration = form.configuration.trim();
+    const brand = form.brand.trim();
+    const modelNumber = form.modelNumber.trim();
+    const model = [brand, modelNumber].filter(Boolean).join(' ');
+    const processor = form.processor.trim();
+    const memory = form.memory.trim();
+    const storage = form.storage.trim();
+    const gpu = form.gpu.trim();
+    const display = form.display.trim();
+    const operatingSystem = form.operatingSystem.trim();
     const price = Number(form.price);
     const quantity = Number(form.quantity);
-    if (!model || !configuration || !Number.isFinite(price) || price < 0 || !Number.isInteger(quantity) || quantity < 0) {
-      setError('Enter a model, configuration, non-negative price, and whole-number stock quantity.');
+    if (!brand || !modelNumber || !Number.isFinite(price) || price < 0 || !Number.isInteger(quantity) || quantity < 0) {
+      setError('Enter a brand, exact model number, non-negative price, and whole-number stock quantity.');
       return;
     }
     if (imageFile && (!['image/jpeg', 'image/png', 'image/webp'].includes(imageFile.type) || imageFile.size > 5 * 1024 * 1024)) {
@@ -206,7 +236,7 @@ function AdminApp() {
       return;
     }
 
-    const productId = editingId || `${slugify(model)}-${window.crypto?.randomUUID?.() || Date.now().toString(36)}`;
+    const productId = editingId || `${slugify(`${brand}-${modelNumber}`)}-${window.crypto?.randomUUID?.() || Date.now().toString(36)}`;
     let imageUrl = existingImageUrl;
     let imagePath = existingImagePath;
     let newlyUploadedPath = '';
@@ -227,7 +257,21 @@ function AdminApp() {
         imageUrl = supabase.storage.from('product-images').getPublicUrl(uploadPath).data.publicUrl;
       }
 
-      const product = toCatalogProduct(productId, { model, configuration, price, quantity, imageUrl, imagePath });
+      const product = toCatalogProduct(productId, {
+        model,
+        modelNumber,
+        brand,
+        processor,
+        memory,
+        storage,
+        gpu,
+        display,
+        operatingSystem,
+        price,
+        quantity,
+        imageUrl,
+        imagePath
+      });
       const { error: saveError } = await supabase.from('products').upsert(toSupabaseProduct(product), { onConflict: 'id' });
       if (saveError) throw saveError;
 
@@ -314,8 +358,8 @@ function AdminApp() {
 
             {products.length === 0 && (
               <section className="admin-card admin-import-card">
-                <div><h2>Load the workbook inventory</h2><p>Start with the current {inventory.length} products generated from <code>stock_list.xlsx</code>. You can add photos and edit each product afterward.</p></div>
-                <button className="admin-button admin-button--primary" type="button" onClick={importWorkbookProducts} disabled={busy}>{busy ? 'Importing…' : 'Import current catalogue'}</button>
+                <div><h2>{savedInventory.length ? 'Load the saved catalogue' : 'No saved products available'}</h2><p>{savedInventory.length ? <>Start with the {savedInventory.length} valid products saved in <code>src/products.json</code>. You can add photos and edit each product afterward.</> : <>Add products with the form below, or add valid product records to <code>src/products.json</code> before importing.</>}</p></div>
+                {savedInventory.length > 0 && <button className="admin-button admin-button--primary" type="button" onClick={importSavedCatalogue} disabled={busy}>{busy ? 'Importing…' : 'Import saved catalogue'}</button>}
               </section>
             )}
 
@@ -323,9 +367,23 @@ function AdminApp() {
               <section className="admin-card admin-product-editor" id="product-form">
                 <div className="admin-section-heading"><div><span className="admin-kicker">Product details</span><h2>{editingId ? 'Edit product' : 'Add product'}</h2></div>{editingId && <button className="admin-text-button" type="button" onClick={resetProductForm}>Cancel edit</button>}</div>
                 <form className="admin-form" onSubmit={saveProduct}>
-                  <label>Model<input type="text" value={form.model} onChange={(event) => setForm({ ...form, model: event.target.value })} maxLength="100" placeholder="Dell 3410" required /></label>
-                  <label>Configuration<input type="text" value={form.configuration} onChange={(event) => setForm({ ...form, configuration: event.target.value })} maxLength="160" placeholder="i5 10th 8/256" required /></label>
-                  <p className="admin-field-hint">CPU generation, memory, and storage shown on the store are derived from this configuration.</p>
+                  <div className="admin-field-grid">
+                    <label>Brand<input type="text" value={form.brand} onChange={(event) => setForm({ ...form, brand: event.target.value })} maxLength="60" placeholder="Dell" required /></label>
+                    <label>Exact model number<input type="text" value={form.modelNumber} onChange={(event) => setForm({ ...form, modelNumber: event.target.value })} maxLength="100" placeholder="Latitude 3420" required /></label>
+                  </div>
+                  <div className="admin-field-grid">
+                    <label>Processor (CPU)<input type="text" value={form.processor} onChange={(event) => setForm({ ...form, processor: event.target.value })} maxLength="120" placeholder="Intel Core i5-1135G7" /></label>
+                    <label>Memory (RAM)<input type="text" value={form.memory} onChange={(event) => setForm({ ...form, memory: event.target.value })} maxLength="80" placeholder="8 GB DDR4" /></label>
+                  </div>
+                  <div className="admin-field-grid">
+                    <label>Storage<input type="text" value={form.storage} onChange={(event) => setForm({ ...form, storage: event.target.value })} maxLength="100" placeholder="256 GB SSD" /></label>
+                    <label>Graphics Card (GPU)<input type="text" value={form.gpu} onChange={(event) => setForm({ ...form, gpu: event.target.value })} maxLength="120" placeholder="Intel Iris Xe Graphics" /></label>
+                  </div>
+                  <div className="admin-field-grid">
+                    <label>Display<input type="text" value={form.display} onChange={(event) => setForm({ ...form, display: event.target.value })} maxLength="100" placeholder="14-inch FHD IPS" /></label>
+                    <label>Operating System (OS)<input type="text" value={form.operatingSystem} onChange={(event) => setForm({ ...form, operatingSystem: event.target.value })} maxLength="100" placeholder="Windows 11 Pro" /></label>
+                  </div>
+                  <p className="admin-field-hint">Older specifications have been carried over where available. Complete or correct any missing fields before saving.</p>
                   <div className="admin-field-grid">
                     <label>Price (INR)<input type="number" min="0" step="1" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} placeholder="28000" required /></label>
                     <label>Quantity<input type="number" min="0" step="1" value={form.quantity} onChange={(event) => setForm({ ...form, quantity: event.target.value })} placeholder="2" required /></label>
@@ -340,12 +398,12 @@ function AdminApp() {
 
             <section className="admin-card admin-products-card">
               <div className="admin-section-heading"><div><span className="admin-kicker">Live inventory</span><h2>Products <span className="admin-list-count">{products.length}</span></h2></div></div>
-              {products.length === 0 ? <p className="admin-empty">No products loaded yet. Import the current workbook catalogue to begin.</p> : (
+              {products.length === 0 ? <p className="admin-empty">No products loaded yet. Import the saved catalogue to begin.</p> : (
                 <div className="admin-product-list">
                   {products.map((product) => (
                     <article className="admin-product-row" key={product.id}>
                       <div className="admin-product-thumb">{product.imageUrl ? <img src={product.imageUrl} alt="" /> : <span>♻</span>}</div>
-                      <div className="admin-product-copy"><strong>{product.model}</strong><span>{product.configuration}</span></div>
+                      <div className="admin-product-copy"><strong>{product.brand} {product.modelNumber || product.model}</strong><span>{[product.processor, product.memory, product.storage, product.gpu, product.display, product.operatingSystem].filter(Boolean).join(' · ') || product.configuration}</span></div>
                       <div className="admin-product-price"><strong>{money.format(product.price)}</strong><span>{product.quantity} in stock</span></div>
                       <div className="admin-row-actions">
                         <button className="admin-button admin-button--secondary" type="button" onClick={() => selectProduct(product)}>Edit</button>

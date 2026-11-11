@@ -1,5 +1,5 @@
 function getBrand(model) {
-  const brand = model.match(/^[a-z]+/i)?.[0] ?? 'Other';
+  const brand = model.match(/^[^\s]+/)?.[0] ?? 'Other';
   return brand.toLowerCase() === 'hp' ? 'HP' : brand[0].toUpperCase() + brand.slice(1).toLowerCase();
 }
 
@@ -11,52 +11,96 @@ function ordinal(value) {
   return `${value}${suffix}`;
 }
 
+function inferGeneration(configuration, processor) {
+  const processorMatch = processor.match(/(\d+(?:st|nd|rd|th)\s+Gen)\s*$/i);
+  if (processorMatch) return processorMatch[1];
+  const configurationMatch = configuration.match(/\b(?:i[3579])\s+(\d+)(?:st|nd|rd|th)\b/i);
+  return configurationMatch ? `${ordinal(Number(configurationMatch[1]))} Gen` : '';
+}
+
+function stripGeneration(processor) {
+  return processor.replace(/\s*[·,-]?\s*\d+(?:st|nd|rd|th)\s+Gen\s*$/i, '').trim();
+}
+
+export function isImportableProduct(product) {
+  return Boolean(
+    product &&
+    typeof product === 'object' &&
+    String(product.id ?? '').trim() &&
+    String(product.modelNumber || product.model_number || product.model || '').trim() &&
+    product.price !== null && product.price !== undefined && Number.isFinite(Number(product.price)) &&
+    product.quantity !== null && product.quantity !== undefined && Number.isFinite(Number(product.quantity))
+  );
+}
+
 export function toCatalogProduct(id, source) {
-  const model = String(source.model ?? '').trim();
-  const configuration = String(source.configuration ?? '').trim();
-  const processorMatch = configuration.match(/\b(i[3579])\s+(\d+)(?:st|nd|rd|th)\b/i);
-  const memoryStorageMatch = configuration.match(/(\d+)\s*\/\s*(\d+)/);
-  const graphicsMatch = configuration.match(/(\d+)\s*gb?\s+graphics/i);
+  const legacyModel = String(source.model ?? '').trim();
+  const brand = String(source.brand || source.brand_name || getBrand(legacyModel)).trim() || 'Other';
+  const inferredModelNumber = legacyModel.toLowerCase().startsWith(`${brand.toLowerCase()} `)
+    ? legacyModel.slice(brand.length).trim()
+    : legacyModel;
+  const modelNumber = String(source.modelNumber || source.model_number || inferredModelNumber).trim();
+  const legacyConfiguration = String(source.configuration ?? '').trim();
+  const processorSource = String(source.processor || source.cpu || '').trim();
+  const generation = String(source.generation || inferGeneration(legacyConfiguration, processorSource)).trim();
+  const processorMatch = legacyConfiguration.match(/\b(i[3579])\s+\d+(?:st|nd|rd|th)\b/i);
+  const inferredProcessor = processorMatch ? `Core ${processorMatch[1].toLowerCase()}` : '';
+  const processor = stripGeneration(processorSource || inferredProcessor);
+  const memoryStorageMatch = legacyConfiguration.match(/(\d+)\s*\/\s*(\d+)/);
+  const graphicsMatch = legacyConfiguration.match(/(\d+)\s*gb?\s+graphics/i);
+  const ramGb = source.ramGb ?? source.ram_gb ?? (memoryStorageMatch ? Number(memoryStorageMatch[1]) : null);
+  const storageGb = source.storageGb ?? source.storage_gb ?? (memoryStorageMatch ? Number(memoryStorageMatch[2]) : null);
+  const graphicsGb = source.graphicsGb ?? source.graphics_gb ?? (graphicsMatch ? Number(graphicsMatch[1]) : null);
+  const memory = String(source.memory || source.memory_spec || (ramGb !== null ? `${ramGb} GB` : '')).trim();
+  const storage = String(source.storage || source.storage_spec || (storageGb !== null ? `${storageGb} GB` : '')).trim();
+  const gpu = String(source.gpu || (graphicsGb !== null ? `${graphicsGb} GB graphics` : '')).trim();
+  const configuration = legacyConfiguration || [processor, generation, memory, storage, gpu].filter(Boolean).join(' · ');
 
   return {
     id: String(source.id || id),
-    model,
-    brand: source.brand || getBrand(model),
+    model: legacyModel || [brand, modelNumber].filter(Boolean).join(' '),
+    modelNumber,
+    brand,
     configuration,
-    processor: source.processor ?? (processorMatch ? `Core ${processorMatch[1].toLowerCase()}` : null),
-    generation: source.generation ?? (processorMatch ? `${ordinal(Number(processorMatch[2]))} Gen` : null),
-    ramGb: source.ramGb ?? (memoryStorageMatch ? Number(memoryStorageMatch[1]) : null),
-    storageGb: source.storageGb ?? (memoryStorageMatch ? Number(memoryStorageMatch[2]) : null),
-    graphicsGb: source.graphicsGb ?? (graphicsMatch ? Number(graphicsMatch[1]) : null),
+    processor,
+    generation: generation || null,
+    memory,
+    storage,
+    gpu,
+    display: String(source.display || '').trim(),
+    operatingSystem: String(source.operatingSystem || source.operating_system || '').trim(),
     price: Number(source.price) || 0,
     quantity: Math.max(0, Math.floor(Number(source.quantity) || 0)),
-    imageUrl: String(source.imageUrl || ''),
-    imagePath: String(source.imagePath || '')
+    imageUrl: String(source.imageUrl || source.image_url || ''),
+    imagePath: String(source.imagePath || source.image_path || '')
   };
 }
 
 export function fromSupabaseProduct(row) {
   return toCatalogProduct(row.id, {
     ...row,
-    ramGb: row.ram_gb,
-    storageGb: row.storage_gb,
-    graphicsGb: row.graphics_gb,
+    modelNumber: row.model_number,
+    operatingSystem: row.operating_system,
     imageUrl: row.image_url,
     imagePath: row.image_path
   });
 }
 
 export function toSupabaseProduct(product) {
+  const processor = [product.processor, product.generation]
+    .filter(Boolean)
+    .join(' · ');
+
   return {
     id: product.id,
-    model: product.model,
     brand: product.brand,
-    configuration: product.configuration,
-    processor: product.processor,
-    generation: product.generation,
-    ram_gb: product.ramGb,
-    storage_gb: product.storageGb,
-    graphics_gb: product.graphicsGb,
+    model_number: product.modelNumber,
+    processor: processor || null,
+    memory: product.memory || null,
+    storage: product.storage || null,
+    gpu: product.gpu || null,
+    display: product.display || null,
+    operating_system: product.operatingSystem || null,
     price: product.price,
     quantity: product.quantity,
     image_url: product.imageUrl || null,

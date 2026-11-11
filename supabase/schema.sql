@@ -1,4 +1,5 @@
--- Run this script once in the Supabase SQL Editor for the project used by the store.
+-- Initial schema for a new project. Existing projects should first run
+-- migrations/20261111000100_normalize_products.sql, then this script.
 
 create table if not exists public.staff_profiles (
   user_id uuid primary key references auth.users (id) on delete cascade,
@@ -36,14 +37,14 @@ grant execute on function public.has_inventory_access() to anon, authenticated;
 
 create table if not exists public.products (
   id text primary key,
-  model text not null check (length(trim(model)) > 0),
   brand text not null default 'Other',
-  configuration text not null check (length(trim(configuration)) > 0),
+  model_number text not null default '',
   processor text,
-  generation text,
-  ram_gb integer check (ram_gb is null or ram_gb >= 0),
-  storage_gb integer check (storage_gb is null or storage_gb >= 0),
-  graphics_gb integer check (graphics_gb is null or graphics_gb >= 0),
+  memory text,
+  storage text,
+  gpu text,
+  display text,
+  operating_system text,
   price numeric(12, 2) not null check (price >= 0),
   quantity integer not null check (quantity >= 0),
   image_url text,
@@ -127,3 +128,6 @@ begin
   end if;
 end;
 $$;
+
+-- Make new or altered columns visible to the Supabase Data API immediately.
+notify pgrst, 'reload schema';

@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import logo from '../renovatech-logo.jpeg';
-import workbookInventory from './products.json';
+import savedCatalogueData from './products.json';
+import { isImportableProduct, toCatalogProduct } from './productData.js';
 import { supabaseConfigured } from './supabase.js';
 import { subscribeCatalog } from './supabase-catalog.js';
 import './styles.css';
@@ -13,6 +14,9 @@ const formatPrice = new Intl.NumberFormat('en-IN', {
   maximumFractionDigits: 0
 });
 const CART_STORAGE_KEY = 'renovatech-cart-v1';
+const staticInventory = savedCatalogueData
+  .filter(isImportableProduct)
+  .map((product) => toCatalogProduct(product.id, product));
 
 function readCart() {
   try {
@@ -138,6 +142,14 @@ function ProductCard({ product, index, cartQuantity, onAddToCart }) {
   const atStockLimit = cartQuantity >= product.quantity;
   const enquiryMessage = `Hi Renovatech, I’d like to enquire about the ${product.model} (${product.configuration}) listed at ${formatPrice.format(product.price)}. Could you confirm availability and details?`;
   const enquiryLink = `https://wa.me/${phone}?text=${encodeURIComponent(enquiryMessage)}`;
+  const specifications = [
+    ['Processor (CPU)', [product.processor, product.generation].filter(Boolean).join(' · ')],
+    ['Memory (RAM)', product.memory],
+    ['Storage', product.storage],
+    ['Graphics Card (GPU)', product.gpu],
+    ['Display', product.display],
+    ['Operating System (OS)', product.operatingSystem]
+  ];
 
   return (
     <article className="product-card">
@@ -149,13 +161,11 @@ function ProductCard({ product, index, cartQuantity, onAddToCart }) {
         </span>
       </div>
       <div className="product-info">
-        <div className="product-brand-row"><span className="product-brand">{product.brand}</span><span>Refurbished laptop</span></div>
-        <h3>{product.model}</h3>
-        <p className="product-processor">{[product.processor, product.generation].filter(Boolean).join(' · ') || product.configuration}</p>
+        <div className="product-brand-row"><span className="product-brand"><small>Brand</small>{product.brand || 'Not specified'}</span><span>Refurbished laptop</span></div>
+        <h3>{product.modelNumber || product.model}</h3>
+        <p className="product-model-label">Exact Model Number</p>
         <div className="spec-list">
-          {product.ramGb && <span><b>{product.ramGb} GB</b><small>Memory</small></span>}
-          {product.storageGb && <span><b>{product.storageGb} GB</b><small>Storage</small></span>}
-          {product.graphicsGb && <span><b>{product.graphicsGb} GB</b><small>Graphics</small></span>}
+          {specifications.map(([label, value]) => <span key={label}><small>{label}</small><b>{value || 'Not specified'}</b></span>)}
         </div>
         <div className="product-buy-row">
           <div><span className="price-label">Price</span><strong className="price">{formatPrice.format(product.price)}</strong></div>
@@ -186,7 +196,8 @@ function Catalogue({ inventory, cartQuantities, onAddToCart }) {
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     const products = inventory.filter((product) => {
-      const matchesText = !term || `${product.model} ${product.brand} ${product.configuration}`.toLowerCase().includes(term);
+      const searchableDetails = [product.model, product.modelNumber, product.brand, product.configuration, product.processor, product.memory, product.storage, product.gpu, product.display, product.operatingSystem].join(' ');
+      const matchesText = !term || searchableDetails.toLowerCase().includes(term);
       const matchesBrand = brand === 'All' || product.brand === brand;
       const matchesGeneration = generation === 'All' || product.generation === generation;
       return matchesText && matchesBrand && matchesGeneration;
@@ -411,7 +422,7 @@ function Contact() {
 function App() {
   const [cart, setCart] = useState(readCart);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [inventory, setInventory] = useState(workbookInventory);
+  const [inventory, setInventory] = useState(staticInventory);
   const [catalogReady, setCatalogReady] = useState(!supabaseConfigured);
 
   useEffect(() => subscribeCatalog((products) => {

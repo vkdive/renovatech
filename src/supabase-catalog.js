@@ -11,7 +11,11 @@ export function subscribeCatalog(onUpdate, onError) {
   let stopped = false;
   let hasLoaded = false;
   const loadProducts = async () => {
-    const { data, error } = await supabase.from('products').select('*').order('model');
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .order('brand')
+      .order('model_number');
     if (stopped) return;
     if (error) {
       onError?.(error);
